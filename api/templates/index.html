@@ -793,76 +793,46 @@
 showTyping();
   // ===== MAIN SEND =====
   async function sendMessage() {
-    const input=document.getElementById('userInput');
-    const text=input.value.trim();
-    if (!text) return;
-    input.value=''; input.style.height='auto';
-    // ✅ GOODBYE HANDLER
-if (isGoodbye(text)) {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
 
+  if (!text) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+
+  // ✅ ALWAYS SHOW USER MESSAGE FIRST
   addMessage('user', text, null, null);
 
-  const byeReplies = [
-    "Alright bro 👋 see you soon 😂",
-    "Haha leaving already? Come back soon 😎",
-    "Bye bro… don’t forget me 😭😂",
-    "See you! I’ll be here with fresh jokes 🎭"
-  ];
+  // ✅ GOODBYE CHECK (AFTER showing user message)
+  if (isGoodbye(text)) {
 
-  const byeMsg = byeReplies[Math.floor(Math.random() * byeReplies.length)];
+    const byeReplies = [
+      "Alright bro 👋 see you soon 😂",
+      "Haha leaving already? Come back soon 😎",
+      "Bye bro… don’t forget me 😭😂",
+      "See you! I’ll be here with fresh jokes 🎭"
+    ];
 
-  setTimeout(async () => {
-    addMessage('ai', byeMsg, null, null);
-    await speakWithAvatar(byeMsg, 'random', 'right', null, null);
-  }, 300);
+    const byeMsg = byeReplies[Math.floor(Math.random() * byeReplies.length)];
 
-  // reset state
-  lastJoke = '';
-  waitingForNext = false;
+    setTimeout(async () => {
+      addMessage('ai', byeMsg, null, null);
+      await speakWithAvatar(byeMsg, 'random', 'right', null, null);
+    }, 300);
 
-  return; // 🔥 STOP everything
-}
-    try {
-      let intentData = {intent:'joke'};
-      try {
-        const ir = await fetch('/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,category:currentCategory,last_joke:lastJoke,waiting_for_next:waitingForNext})});
-        if (ir.ok) intentData = await ir.json();
-      } catch(e) { console.warn('Intent failed:', e); }
+    // reset state
+    lastJoke = '';
+    waitingForNext = false;
 
-      if (intentData.intent==='conversation' && intentData.reply) {
-        waitingForNext=true; removeTyping();
-        addMessage('ai', intentData.reply, null, null);
-        await speakWithAvatar(intentData.reply, currentCategory, 'right', null, null);
-        return;
-      }
-
-      waitingForNext=false;
-      const jr   = await fetch('/joke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,category:currentCategory})});
-      if (!jr.ok) throw new Error('Joke fetch failed');
-      const data = await jr.json();
-      removeTyping();
-
-      if (data.error) { addMessage('ai','😅 Joke machine crashed. Try again!',null,null); return; }
-
-      lastJoke = data.joke;
-      updateStatsBar(1, 0, data.category);
-
-      // Get latest history ID for rating
-      const histRes  = await fetch('/history');
-      const histData = await histRes.json();
-      const histId   = histData.history && histData.history[0] ? histData.history[0].id : null;
-
-      addMessage('ai', data.joke, data.category, {joke:data.joke, historyId:histId});
-      spawnParticles(data.stage_fx);
-      await speakWithAvatar(data.joke, data.category, 'right', data.emotion, data.lip_frames);
-
-    } catch(err) {
-      removeTyping();
-      console.error('sendMessage error:', err);
-      addMessage('ai','🔌 Connection issue! Is the server running?',null,null);
-    }
+    return; // 🔥 STOP HERE (VERY IMPORTANT)
   }
 
+  // ✅ NORMAL FLOW CONTINUES
+  await speakWithAvatar(text, 'random', 'left', null, null);
+
+  showTyping();
+  }
   async function resetJokes() {
     lastJoke=''; waitingForNext=false;
     await fetch('/reset',{method:'POST'});
