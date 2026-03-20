@@ -9,12 +9,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   <style>
-    .avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}
     /* ===== THEME VARIABLES ===== */
     :root {
       --bg:#0a0a0f; --surface:#111118; --surface2:#1a1a24;
@@ -63,9 +57,9 @@
     .spotlight.right.active { opacity:0.2; }
 
     .avatar-slot { display:flex; flex-direction:column; align-items:center; gap:6px; position:relative; z-index:2; }
-    .av-wrap { position:relative; width:110px; height:110px; flex-shrink:0; }
+    .av-wrap { position:relative; width:110px; height:110px; flex-shrink:0; overflow: visible;}
     .user-circle { width:110px; height:110px; border-radius:50%; background:linear-gradient(135deg,#2a1a4e,#1a1a2e); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:2.8rem; transition:border-color 0.3s, box-shadow 0.3s, transform 0.3s; }
-    .av-img { width:110px; height:110px; border-radius:50%; object-fit:cover; border:2px solid var(--border); display:block; transition:border-color 0.3s, box-shadow 0.3s, transform 0.3s; }
+    .av-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: center; border: 2px solid var(--border); display: block; transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;}
     .avatar-slot.speaking .av-img, .avatar-slot.speaking .user-circle { border-color:var(--accent); box-shadow:0 0 22px rgba(255,61,110,0.4); animation:av-bob 0.35s ease-in-out infinite alternate; }
     .avatar-slot.left.speaking .av-img, .avatar-slot.left.speaking .user-circle { border-color:#7c3aed; box-shadow:0 0 22px rgba(124,58,237,0.4); }
     .avatar-slot.laughing .av-img, .avatar-slot.laughing .user-circle { animation:av-laugh 0.18s ease-in-out infinite alternate !important; border-color:var(--accent2) !important; box-shadow:0 0 28px rgba(255,140,66,0.5) !important; }
