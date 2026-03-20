@@ -6,17 +6,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, date
 import uuid
 from flask import Flask
+from gtts import gTTS
+from io import BytesIO
+
+load_dotenv()
 
 app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Flask is working!"
-
-# VERY IMPORTANT
-app = app
-load_dotenv()
-app    = Flask(__name__)
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # ============================
@@ -485,20 +480,32 @@ def joke():
 @app.route("/speak", methods=["POST"])
 def speak():
     try:
-        data     = request.get_json()
-        text     = data.get("text","")
-        category = data.get("category","random")
-        voice    = CATEGORY_VOICES.get(category,"daniel")
-        emotion  = CATEGORY_EMOTION.get(category,"<cheerful>")
-        res = client.audio.speech.create(
-            model="canopylabs/orpheus-v1-english",
-            voice=voice, input=f"{emotion} {text}", response_format="wav"
-        )
-        return Response(res.read(), mimetype="audio/wav", headers={"Content-Disposition":"inline; filename=joke.wav"})
-    except Exception as e:
-        print(f"❌ TTS ERROR: {e}")
-        return jsonify({"error": str(e)}), 500
+        data = request.get_json()
+        text = data.get("text", "")
 
+        if not text:
+            return jsonify({"error": "No text provided"}), 400
+
+        # 🔥 Generate TTS
+        tts = gTTS(text=text, lang='en')
+
+        # 🔥 Store in memory (Vercel safe)
+        audio_fp = BytesIO()
+        tts.write_to_fp(audio_fp)
+        audio_fp.seek(0)
+
+        return Response(
+            audio_fp.read(),
+            mimetype="audio/mpeg",
+            headers={
+                "Content-Disposition": "inline; filename=speech.mp3"
+            }
+        )
+
+    except Exception as e:
+        print(f"❌ TTS ERROR:", str(e))
+        return jsonify({"error": str(e)}), 500
+    
 @app.route("/respond", methods=["POST"])
 def respond():
     try:
