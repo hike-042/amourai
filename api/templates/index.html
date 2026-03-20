@@ -801,9 +801,6 @@ showTyping();
   input.value = '';
   input.style.height = 'auto';
 
-  // ✅ ALWAYS SHOW USER MESSAGE FIRST
-  addMessage('user', text, null, null);
-
   // ✅ GOODBYE CHECK (AFTER showing user message)
   if (isGoodbye(text)) {
 
