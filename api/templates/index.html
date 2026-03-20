@@ -814,9 +814,10 @@ showTyping();
     const byeMsg = byeReplies[Math.floor(Math.random() * byeReplies.length)];
 
     setTimeout(async () => {
-      addMessage('ai', byeMsg, null, null);
-      await speakWithAvatar(byeMsg, 'random', 'right', null, null);
-    }, 300);
+      addMessage('user', text, null, null);
+showTyping();
+// THEN run heavy stuff
+await speakWithAvatar(text,'random','left',null,null);})
 
     // reset state
     lastJoke = '';
