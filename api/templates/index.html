@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AmourAI — Laughs Only</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+  <style>
+    /* ===== THEME VARIABLES ===== */
+    :root {
+      --bg:#0a0a0f; --surface:#111118; --surface2:#1a1a24;
+      --border:#2a2a3a; --accent:#ff3d6e; --accent2:#ff8c42;
+      --accent3:#7c3aed; --text:#e8e8f0; --text-muted:#6b6b85;
+      --ai-bubble:#16161f;
+    }
+    [data-theme="light"] {
+      --bg:#f5f5f0; --surface:#ffffff; --surface2:#f0f0eb;
+      --border:#ddddd8; --accent:#ff3d6e; --accent2:#ff8c42;
+      --accent3:#7c3aed; --text:#1a1a2e; --text-muted:#888880;
+      --ai-bubble:#f8f8f3;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; transition:background-color 0.3s, color 0.3s, border-color 0.3s; }
+    html, body { height:100vh; width:100vw; overflow:hidden; background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; display:flex; flex-direction:column; }
+
+    /* ===== JOTD BANNER ===== */
+    .jotd-banner {
+      background:linear-gradient(135deg,rgba(255,61,110,0.12),rgba(124,58,237,0.12));
+      border-bottom:1px solid rgba(255,61,110,0.2);
+      padding:8px 20px;
+      display:flex; align-items:center; gap:12px;
+      flex-shrink:0; font-size:0.78rem;
+    }
+    .jotd-label { font-family:'Space Mono',monospace; color:var(--accent); font-size:0.65rem; letter-spacing:2px; text-transform:uppercase; white-space:nowrap; }
+    .jotd-text  { flex:1; color:var(--text); line-height:1.4; }
+    .jotd-close { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1rem; padding:0 4px; }
+
+    /* ===== STAGE ===== */
+    .stage {
+      width:100%; height:200px; min-height:200px; flex-shrink:0;
+      background:linear-gradient(180deg,#0e0e1c 0%,var(--bg) 100%);
+      border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:center;
+      position:relative; overflow:hidden; z-index:10;
+    }
+    [data-theme="light"] .stage { background:linear-gradient(180deg,#e8e8f5 0%,var(--bg) 100%); }
+
+    /* Particle canvas */
+    #particleCanvas { position:absolute; inset:0; pointer-events:none; z-index:1; }
+
+    .spotlight { position:absolute; top:0; width:200px; height:100%; pointer-events:none; opacity:0.06; transition:opacity 0.5s ease; }
+    .spotlight.left  { left:60px;  background:radial-gradient(ellipse at 50% 0%,#7c3aed,transparent 70%); }
+    .spotlight.right { right:60px; background:radial-gradient(ellipse at 50% 0%,#ff3d6e,transparent 70%); }
+    .spotlight.left.active  { opacity:0.2; }
+    .spotlight.right.active { opacity:0.2; }
+
+    .avatar-slot { display:flex; flex-direction:column; align-items:center; gap:6px; position:relative; z-index:2; }
+    .av-wrap { position:relative; width:110px; height:110px; flex-shrink:0; }
+    .user-circle { width:110px; height:110px; border-radius:50%; background:linear-gradient(135deg,#2a1a4e,#1a1a2e); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:2.8rem; transition:border-color 0.3s, box-shadow 0.3s, transform 0.3s; }
+    .av-img { width:110px; height:110px; border-radius:50%; object-fit:cover; border:2px solid var(--border); display:block; transition:border-color 0.3s, box-shadow 0.3s, transform 0.3s; }
+    .avatar-slot.speaking .av-img, .avatar-slot.speaking .user-circle { border-color:var(--accent); box-shadow:0 0 22px rgba(255,61,110,0.4); animation:av-bob 0.35s ease-in-out infinite alternate; }
+    .avatar-slot.left.speaking .av-img, .avatar-slot.left.speaking .user-circle { border-color:#7c3aed; box-shadow:0 0 22px rgba(124,58,237,0.4); }
+    .avatar-slot.laughing .av-img, .avatar-slot.laughing .user-circle { animation:av-laugh 0.18s ease-in-out infinite alternate !important; border-color:var(--accent2) !important; box-shadow:0 0 28px rgba(255,140,66,0.5) !important; }
+    @keyframes av-bob   { from{transform:scale(1) rotate(-1deg) translateY(0);}   to{transform:scale(1.06) rotate(1deg) translateY(-4px);} }
+    @keyframes av-laugh { from{transform:scale(1.02) rotate(-3deg) translateY(0);} to{transform:scale(1.1) rotate(3deg) translateY(-5px);} }
+
+    .mouth-overlay { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); width:50px; height:26px; pointer-events:none; opacity:0; transition:opacity 0.2s; }
+    .avatar-slot.speaking .mouth-overlay, .avatar-slot.laughing .mouth-overlay { opacity:1; }
+
+    .speech-bubble { position:absolute; left:50%; bottom:calc(100% + 10px); transform:translateX(-50%) translateY(6px) scale(0.95); max-width:160px; min-width:70px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:7px 10px; font-size:0.72rem; line-height:1.4; color:var(--text); opacity:0; transition:opacity 0.3s ease, transform 0.3s ease; pointer-events:none; z-index:30; word-break:break-word; text-align:center; }
+    .speech-bubble.visible { opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+    .speech-bubble::after { content:''; position:absolute; bottom:-7px; left:50%; transform:translateX(-50%) rotate(45deg); width:12px; height:12px; background:var(--surface); border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+    .speech-bubble.left-bubble { border-color:#7c3aed; }
+    .speech-bubble.left-bubble::after { border-right-color:#7c3aed; border-bottom-color:#7c3aed; }
+    .speech-bubble.right-bubble { border-color:var(--accent); }
+    .speech-bubble.right-bubble::after { border-right-color:var(--accent); border-bottom-color:var(--accent); }
+
+    .laugh-burst { position:absolute; top:-10px; right:-8px; font-size:1.2rem; opacity:0; pointer-events:none; z-index:30; }
+    .laugh-burst.pop { animation:burst-pop 0.7s ease-out forwards; }
+    @keyframes burst-pop { 0%{opacity:1;transform:scale(0) rotate(-15deg);} 50%{opacity:1;transform:scale(1.4) rotate(8deg);} 100%{opacity:0;transform:scale(1) rotate(0deg) translateY(-18px);} }
+
+    /* Name tag */
+    .name-tag { font-family:'Space Mono',monospace; font-size:0.6rem; letter-spacing:2px; color:var(--text-muted); text-transform:uppercase; cursor:pointer; padding:2px 6px; border-radius:6px; transition:all 0.2s; }
+    .name-tag:hover { color:var(--accent); background:rgba(255,61,110,0.08); }
+
+    /* Mini waveform */
+    .mini-wave { display:flex; align-items:center; gap:2px; height:12px; opacity:0; transition:opacity 0.3s; }
+    .mini-wave.active { opacity:1; }
+    .wb { width:2px; border-radius:1px; height:3px; animation:mw 0.5s ease-in-out infinite alternate; }
+    .lw .wb { background:var(--accent3); } .rw .wb { background:var(--accent); }
+    .wb:nth-child(1){animation-delay:0.00s;--mh:10px;} .wb:nth-child(2){animation-delay:0.10s;--mh:14px;}
+    .wb:nth-child(3){animation-delay:0.05s;--mh:7px;}  .wb:nth-child(4){animation-delay:0.15s;--mh:12px;}
+    .wb:nth-child(5){animation-delay:0.08s;--mh:8px;}
+    @keyframes mw { from{height:3px;} to{height:calc(3px + var(--mh,10px));} }
+
+    .vs-divider { display:flex; flex-direction:column; align-items:center; gap:4px; padding:0 28px; z-index:2; }
+    .vs-text { font-family:'Bebas Neue',cursive; font-size:1.5rem; letter-spacing:4px; background:linear-gradient(135deg,#7c3aed,var(--accent)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .vs-line { width:1px; height:28px; background:linear-gradient(to bottom,transparent,var(--border),transparent); }
+
+    /* ===== STATS BAR ===== */
+    .stats-bar {
+      display:flex; align-items:center; gap:16px;
+      padding:6px 20px;
+      background:var(--surface);
+      border-bottom:1px solid var(--border);
+      font-family:'Space Mono',monospace;
+      font-size:0.65rem; color:var(--text-muted);
+      flex-shrink:0; flex-wrap:wrap;
+    }
+    .stat-item { display:flex; align-items:center; gap:5px; }
+    .stat-val  { color:var(--accent); font-weight:600; }
+    .streak-badge { background:linear-gradient(135deg,var(--accent2),var(--accent)); color:white; padding:2px 8px; border-radius:10px; font-size:0.6rem; letter-spacing:1px; }
+
+    /* ===== BOTTOM ===== */
+    .bottom { display:flex; flex:1; overflow:hidden; min-height:0; }
+
+    /* Sidebar */
+    .sidebar { width:200px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+    .sidebar-header { padding:14px 14px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .logo { font-family:'Bebas Neue',cursive; font-size:1.8rem; letter-spacing:3px; background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; }
+    .logo-sub { font-size:0.6rem; color:var(--text-muted); letter-spacing:2px; text-transform:uppercase; margin-top:3px; font-family:'Space Mono',monospace; }
+    .category-section { padding:10px; flex:1; overflow-y:auto; }
+    .category-label { font-size:0.58rem; letter-spacing:2px; color:var(--text-muted); text-transform:uppercase; font-family:'Space Mono',monospace; margin-bottom:8px; }
+    .category-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+    .cat-btn { padding:7px 5px; border:1px solid var(--border); background:var(--surface2); color:var(--text); border-radius:10px; font-family:'DM Sans',sans-serif; font-size:0.73rem; font-weight:500; cursor:pointer; transition:all 0.2s; text-align:center; display:flex; flex-direction:column; align-items:center; gap:2px; }
+    .cat-btn .cat-icon { font-size:0.95rem; }
+    .cat-btn:hover { border-color:var(--accent); background:rgba(255,61,110,0.08); transform:translateY(-1px); }
+    .cat-btn.active { border-color:var(--accent); background:rgba(255,61,110,0.15); color:var(--accent); }
+
+    /* History panel */
+    .history-panel { border-top:1px solid var(--border); padding:10px; max-height:160px; overflow-y:auto; }
+    .history-label { font-size:0.58rem; letter-spacing:2px; color:var(--text-muted); text-transform:uppercase; font-family:'Space Mono',monospace; margin-bottom:6px; }
+    .history-item { font-size:0.7rem; color:var(--text-muted); padding:4px 6px; border-radius:6px; cursor:pointer; transition:all 0.2s; line-height:1.3; margin-bottom:3px; border:1px solid transparent; }
+    .history-item:hover { background:var(--surface2); border-color:var(--border); color:var(--text); }
+    .history-stars { color:var(--accent2); font-size:0.6rem; }
+
+    /* Main */
+    .main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+    .chat-header { padding:10px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--surface); flex-shrink:0; }
+    .chat-header-title { font-family:'Bebas Neue',cursive; font-size:1.1rem; letter-spacing:2px; color:var(--text-muted); }
+    .chat-header-title strong { color:var(--text); }
+    .header-btns { display:flex; gap:5px; flex-wrap:wrap; }
+    .hbtn { display:flex; align-items:center; gap:4px; font-size:0.68rem; color:var(--text-muted); cursor:pointer; padding:4px 9px; border:1px solid var(--border); border-radius:16px; background:var(--surface2); transition:all 0.2s; font-family:'Space Mono',monospace; user-select:none; white-space:nowrap; }
+    .hbtn:hover { border-color:var(--accent); color:var(--accent); }
+    .hbtn.on { border-color:var(--accent); color:var(--accent); background:rgba(255,61,110,0.08); }
+
+    .chat-log { flex:1; overflow-y:auto; padding:14px 18px; display:flex; flex-direction:column; gap:10px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; min-height:0; }
+    .chat-log::-webkit-scrollbar { width:4px; }
+    .chat-log::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+    .welcome-card { background:linear-gradient(135deg,rgba(255,61,110,0.08),rgba(124,58,237,0.08)); border:1px solid rgba(255,61,110,0.2); border-radius:14px; padding:16px; text-align:center; }
+    .welcome-card h2 { font-family:'Bebas Neue',cursive; font-size:1.6rem; letter-spacing:3px; background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .welcome-card p { color:var(--text-muted); font-size:0.84rem; margin-top:5px; line-height:1.6; }
+
+    .msg { display:flex; gap:8px; align-items:flex-start; animation:msg-in 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+    @keyframes msg-in { from{opacity:0;transform:translateY(8px) scale(0.97);} to{opacity:1;transform:translateY(0) scale(1);} }
+    .msg.user { flex-direction:row-reverse; }
+    .msg-avatar { width:26px; height:26px; border-radius:50%; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:0.8rem; flex-shrink:0; border:1px solid var(--border); }
+    .msg.ai .msg-avatar { background:linear-gradient(135deg,rgba(255,61,110,0.2),rgba(124,58,237,0.2)); border-color:rgba(255,61,110,0.3); }
+    .bubble { max-width:68%; padding:10px 14px; border-radius:14px; font-size:0.86rem; line-height:1.6; }
+    .msg.ai .bubble { background:var(--ai-bubble); border:1px solid var(--border); border-top-left-radius:4px; }
+    .msg.user .bubble { background:linear-gradient(135deg,rgba(124,58,237,0.18),rgba(255,61,110,0.12)); border:1px solid rgba(124,58,237,0.25); border-top-right-radius:4px; }
+    .bubble-meta { font-size:0.62rem; color:var(--text-muted); margin-top:4px; font-family:'Space Mono',monospace; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .cat-tag { padding:2px 6px; border-radius:8px; background:rgba(255,61,110,0.12); color:var(--accent); border:1px solid rgba(255,61,110,0.2); font-size:0.57rem; letter-spacing:1px; text-transform:uppercase; }
+
+    /* Feedback row */
+    .feedback-row { display:flex; gap:4px; margin-top:5px; align-items:center; }
+    .fb-btn { padding:2px 7px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text-muted); font-size:0.68rem; cursor:pointer; transition:all 0.2s; font-family:'Space Mono',monospace; }
+    .fb-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .fb-btn.voted { border-color:var(--accent); color:var(--accent); background:rgba(255,61,110,0.1); }
+    .share-btn { padding:2px 7px; border-radius:8px; border:1px solid var(--border); background:var(--surface2); color:var(--text-muted); font-size:0.68rem; cursor:pointer; transition:all 0.2s; font-family:'Space Mono',monospace; margin-left:auto; }
+    .share-btn:hover { border-color:var(--accent3); color:var(--accent3); }
+    .share-btn.copied { border-color:#2ecc71; color:#2ecc71; }
+
+    /* Star rating */
+    .star-rating { display:flex; gap:2px; margin-top:4px; }
+    .star { cursor:pointer; font-size:0.9rem; color:var(--text-muted); transition:color 0.2s; }
+    .star:hover, .star.filled { color:var(--accent2); }
+
+    .typing-bubble { display:flex; gap:8px; align-items:center; }
+    .typing-dots { display:flex; gap:5px; padding:10px 14px; background:var(--ai-bubble); border:1px solid var(--border); border-radius:14px; border-top-left-radius:4px; }
+    .typing-dots span { width:6px; height:6px; border-radius:50%; background:var(--accent); animation:typing 1.2s ease infinite; }
+    .typing-dots span:nth-child(2){animation-delay:0.2s;background:var(--accent2);}
+    .typing-dots span:nth-child(3){animation-delay:0.4s;background:var(--accent3);}
+    @keyframes typing { 0%,100%{transform:translateY(0);opacity:0.4;} 50%{transform:translateY(-4px);opacity:1;} }
+
+    .input-area { padding:8px 18px 12px; border-top:1px solid var(--border); background:var(--surface); flex-shrink:0; }
+    .input-row { display:flex; gap:7px; align-items:flex-end; }
+    .input-box { flex:1; padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:0.86rem; resize:none; outline:none; min-height:42px; max-height:90px; line-height:1.5; transition:border-color 0.2s; }
+    .input-box:focus { border-color:rgba(255,61,110,0.4); }
+    .input-box::placeholder { color:var(--text-muted); }
+    .send-btn { width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg,var(--accent),var(--accent3)); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; box-shadow:0 4px 16px rgba(255,61,110,0.3); }
+    .send-btn:hover { transform:scale(1.05); }
+    .send-btn:active { transform:scale(0.96); }
+    .voice-btn { width:42px; height:42px; border-radius:12px; background:var(--surface2); border:1px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; font-size:0.95rem; }
+    .voice-btn:hover { border-color:var(--accent); background:rgba(255,61,110,0.08); }
+    .voice-btn.listening { border-color:var(--accent); background:rgba(255,61,110,0.15); animation:vpulse 1s ease infinite alternate; }
+    @keyframes vpulse { from{box-shadow:0 0 0 0 rgba(255,61,110,0.3);} to{box-shadow:0 0 0 7px rgba(255,61,110,0);} }
+    .input-hint { font-size:0.62rem; color:var(--text-muted); margin-top:5px; font-family:'Space Mono',monospace; text-align:center; }
+    .input-hint kbd { background:var(--surface2); border:1px solid var(--border); border-radius:3px; padding:1px 4px; font-size:0.6rem; }
+
+    /* Name modal */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; display:none; align-items:center; justify-content:center; }
+    .modal-overlay.show { display:flex; }
+    .modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; width:300px; }
+    .modal h3 { font-family:'Bebas Neue',cursive; font-size:1.4rem; letter-spacing:2px; color:var(--text); margin-bottom:12px; }
+    .modal input { width:100%; padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:0.9rem; outline:none; margin-bottom:12px; }
+    .modal input:focus { border-color:var(--accent); }
+    .modal-btns { display:flex; gap:8px; }
+    .modal-btn { flex:1; padding:8px; border-radius:10px; border:none; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.86rem; font-weight:500; transition:all 0.2s; }
+    .modal-btn.primary { background:linear-gradient(135deg,var(--accent),var(--accent3)); color:white; }
+    .modal-btn.secondary { background:var(--surface2); color:var(--text-muted); border:1px solid var(--border); }
+
+    /* Toast notification */
+    .toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px 16px; font-size:0.78rem; font-family:'Space Mono',monospace; color:var(--text); opacity:0; transition:all 0.3s; z-index:200; white-space:nowrap; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    @media(max-width:700px){ .sidebar{display:none;} .stage{height:150px;} .av-wrap,.user-circle,.av-img{width:85px;height:85px;} .jotd-banner{display:none;} }
+  </style>
+</head>
+<body>
+
+<!-- JOTD Banner -->
+<div class="jotd-banner" id="jotdBanner" style="display:none">
+  <span class="jotd-label">🌅 Joke of the Day</span>
+  <span class="jotd-text" id="jotdText"></span>
+  <button class="jotd-close" onclick="document.getElementById('jotdBanner').style.display='none'">✕</button>
+</div>
+
+<!-- STAGE -->
+<div class="stage">
+  <canvas id="particleCanvas"></canvas>
+  <div class="spotlight left"  id="spotLeft"></div>
+  <div class="spotlight right" id="spotRight"></div>
+
+  <!-- LEFT — USER -->
+  <div class="avatar-slot left" id="slotLeft">
+    <div class="av-wrap">
+      <div class="user-circle" id="userCircle">🧑</div>
+      <div class="speech-bubble left-bubble" id="bubbleLeft"></div>
+      <div class="laugh-burst" id="burstLeft">😂</div>
+    </div>
+    <div class="mini-wave lw" id="waveLeft">
+      <div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div>
+    </div>
+    <div class="name-tag" id="userNameTag" onclick="showNameModal()">YOU</div>
+  </div>
+
+  <div class="vs-divider">
+    <div class="vs-line"></div>
+    <div class="vs-text">VS</div>
+    <div class="vs-line"></div>
+  </div>
+
+  <!-- RIGHT — AMOURAI -->
+  <div class="avatar-slot right" id="slotRight">
+    <div class="av-wrap">
+      <img src="/static/avatar.png" class="av-img" id="imgRight" onerror="this.style.display='none'"/>
+      <svg class="mouth-overlay" viewBox="0 0 60 30" xmlns="http://www.w3.org/2000/svg">
+        <ellipse id="mouthOpenRight"  cx="30" cy="20" rx="14" ry="0" fill="#1a0a0f"/>
+        <ellipse id="mouthTeethRight" cx="30" cy="19" rx="11" ry="0" fill="white"/>
+        <path    id="mouthSmileRight" d="M16 16 Q30 24 44 16" stroke="#ff3d6e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+      </svg>
+      <div class="speech-bubble right-bubble" id="bubbleRight"></div>
+      <div class="laugh-burst" id="burstRight">🤣</div>
+    </div>
+    <div class="mini-wave rw" id="waveRight">
+      <div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div><div class="wb"></div>
+    </div>
+    <div class="name-tag" id="rightLabel">AMOURAI</div>
+  </div>
+</div>
+
+<!-- STATS BAR -->
+<div class="stats-bar" id="statsBar">
+  <div class="stat-item">😂 <span class="stat-val" id="statJokes">0</span> jokes</div>
+  <div class="stat-item">❤️ <span class="stat-val" id="statLaughs">0</span> laughs</div>
+  <div class="stat-item">🏆 <span class="stat-val" id="statTop">—</span></div>
+  <div class="stat-item">🔥 <span class="streak-badge" id="statStreak">0 day streak</span></div>
+</div>
+
+<!-- BOTTOM -->
+<div class="bottom">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">AmourAI</div>
+      <div class="logo-sub">Laughs Only · v4.0</div>
+    </div>
+    <div class="category-section">
+      <div class="category-label">Categories</div>
+      <div class="category-grid">
+        <button class="cat-btn active" data-cat="random" onclick="setCategory(this)"><span class="cat-icon">🎲</span>Random</button>
+        <button class="cat-btn" data-cat="tech"   onclick="setCategory(this)"><span class="cat-icon">💻</span>Tech</button>
+        <button class="cat-btn" data-cat="dark"   onclick="setCategory(this)"><span class="cat-icon">🌑</span>Dark</button>
+        <button class="cat-btn" data-cat="dad"    onclick="setCategory(this)"><span class="cat-icon">👴</span>Dad</button>
+        <button class="cat-btn" data-cat="mom"    onclick="setCategory(this)"><span class="cat-icon">👩</span>Mom</button>
+        <button class="cat-btn" data-cat="pun"    onclick="setCategory(this)"><span class="cat-icon">🎭</span>Pun</button>
+        <button class="cat-btn" data-cat="roast"  onclick="setCategory(this)"><span class="cat-icon">🔥</span>Roast</button>
+      </div>
+    </div>
+    <!-- History Panel -->
+    <div class="history-panel">
+      <div class="history-label">Recent Jokes</div>
+      <div id="historyList"></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="chat-header">
+      <div class="chat-header-title">Chat with <strong>AmourAI</strong></div>
+      <div class="header-btns">
+        <div class="hbtn on" id="ttsToggle"   onclick="toggleTTS()">🔊 Voice</div>
+        <div class="hbtn"    id="themeToggle" onclick="toggleTheme()">🌙 Dark</div>
+        <div class="hbtn"    onclick="resetJokes()">🔄 Reset</div>
+      </div>
+    </div>
+
+    <div class="chat-log" id="chatLog">
+      <div class="welcome-card">
+        <h2>😂 Ready to Laugh?</h2>
+        <p>You ask. AmourAI answers with a joke.<br>Watch the avatars go at it! 🎭</p>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-row">
+        <textarea class="input-box" id="userInput" placeholder="Type anything… watch the avatars battle 😄" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="voice-btn" id="voiceBtn" onclick="toggleVoice()">🎤</button>
+        <button class="send-btn"  onclick="sendMessage()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+      <div class="input-hint"><kbd>Enter</kbd> send &nbsp;·&nbsp; <kbd>Shift+Enter</kbd> newline &nbsp;·&nbsp; Double-click category = instant joke</div>
+    </div>
+  </main>
+</div>
+
+<!-- Name Modal -->
+<div class="modal-overlay" id="nameModal">
+  <div class="modal">
+    <h3>Set Your Name</h3>
+    <input type="text" id="nameInput" placeholder="Enter your name..." maxlength="20"/>
+    <div class="modal-btns">
+      <button class="modal-btn secondary" onclick="hideNameModal()">Cancel</button>
+      <button class="modal-btn primary"   onclick="saveName()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ===== STATE =====
+  let currentCategory = 'random';
+  let ttsEnabled      = true;
+  let isListening     = false;
+  let recognition     = null;
+  let lipSyncTimers   = {left:null, right:null};
+  let lastJoke        = '';
+  let waitingForNext  = false;
+  let sessionId       = 'user_' + Math.random().toString(36).substr(2,9);
+  let particleCtx     = null;
+  let particles       = [];
+  let particleAnim    = null;
+
+  // ===== INIT =====
+  window.addEventListener('load', async () => {
+    initParticles();
+    await loadStreak();
+    await loadJOTD();
+    await loadHistory();
+    await loadStats();
+  });
+
+  // ===== AGENT 14: JOKE OF THE DAY =====
+  async function loadJOTD() {
+    try {
+      const res  = await fetch('/jotd');
+      const data = await res.json();
+      if (data.joke) {
+        document.getElementById('jotdText').textContent = data.joke;
+        document.getElementById('jotdBanner').style.display = 'flex';
+      }
+    } catch(e) { console.warn('JOTD failed:', e); }
+  }
+
+  // ===== AGENT 12: STREAK =====
+  async function loadStreak() {
+    try {
+      const res  = await fetch('/streak');
+      const data = await res.json();
+      document.getElementById('statStreak').textContent = `${data.streak} day streak`;
+    } catch(e) {}
+  }
+
+  // ===== AGENT 10: STATS =====
+  async function loadStats() {
+    try {
+      const res  = await fetch('/stats');
+      const data = await res.json();
+      document.getElementById('statJokes').textContent  = data.total_jokes  || 0;
+      document.getElementById('statLaughs').textContent = data.total_laughs || 0;
+      document.getElementById('statTop').textContent    = data.top_category || '—';
+    } catch(e) {}
+  }
+
+  function updateStatsBar(jokesAdd, laughAdd, category) {
+    const jEl = document.getElementById('statJokes');
+    const lEl = document.getElementById('statLaughs');
+    jEl.textContent = (parseInt(jEl.textContent)||0) + jokesAdd;
+    lEl.textContent = (parseInt(lEl.textContent)||0) + laughAdd;
+    document.getElementById('statTop').textContent = category;
+  }
+
+  // ===== AGENT 11: HISTORY =====
+  async function loadHistory() {
+    try {
+      const res  = await fetch('/history');
+      const data = await res.json();
+      renderHistory(data.history || []);
+    } catch(e) {}
+  }
+
+  function renderHistory(items) {
+    const list = document.getElementById('historyList');
+    list.innerHTML = '';
+    items.slice(0,8).forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      const short = item.joke.length > 50 ? item.joke.substring(0,50)+'…' : item.joke;
+      const stars  = item.rating ? '★'.repeat(item.rating) + '☆'.repeat(5-item.rating) : '';
+      div.innerHTML = `<div>${short}</div>${stars ? `<div class="history-stars">${stars}</div>` : ''}`;
+      div.onclick = () => {
+        document.getElementById('userInput').value = item.joke;
+        autoResize(document.getElementById('userInput'));
+      };
+      list.appendChild(div);
+    });
+  }
+
+  // ===== AGENT 18: PARTICLES =====
+  function initParticles() {
+    const canvas = document.getElementById('particleCanvas');
+    canvas.width  = canvas.offsetWidth  || window.innerWidth;
+    canvas.height = canvas.offsetHeight || 200;
+    particleCtx = canvas.getContext('2d');
+    window.addEventListener('resize', () => {
+      canvas.width  = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    });
+  }
+
+  function spawnParticles(fx) {
+    if (!fx || !fx.active || !particleCtx) return;
+    const canvas = document.getElementById('particleCanvas');
+    const count  = Math.min(fx.particles || 10, 40);
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: canvas.height + 10,
+        vx: (Math.random()-0.5) * fx.speed * 2,
+        vy: -(Math.random() * 2 + 1) * fx.speed,
+        size: fx.size || 3,
+        color: fx.color || '#ff3d6e',
+        alpha: 1,
+        life: 1,
+      });
+    }
+    if (!particleAnim) animateParticles();
+  }
+
+  function animateParticles() {
+    const canvas = document.getElementById('particleCanvas');
+    if (!particleCtx || particles.length === 0) { particleAnim = null; return; }
+    particleCtx.clearRect(0, 0, canvas.width, canvas.height);
+    particles = particles.filter(p => p.alpha > 0.05);
+    particles.forEach(p => {
+      p.x    += p.vx;
+      p.y    += p.vy;
+      p.vy   += 0.04;
+      p.alpha -= 0.012;
+      particleCtx.save();
+      particleCtx.globalAlpha = Math.max(0, p.alpha);
+      particleCtx.fillStyle   = p.color;
+      particleCtx.beginPath();
+      particleCtx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      particleCtx.fill();
+      particleCtx.restore();
+    });
+    particleAnim = requestAnimationFrame(animateParticles);
+  }
+
+  // ===== AGENT 13: CONFETTI =====
+  function fireConfetti(confettiData) {
+    if (!confettiData || !confettiData.fire) return;
+    confetti({
+      particleCount: confettiData.count || 100,
+      spread: 70,
+      origin: { y: 0.3 },
+      colors: confettiData.colors || ['#ff3d6e','#ff8c42','#7c3aed'],
+    });
+  }
+
+  // ===== LIP SYNC =====
+  const MOUTH_SHAPES = {
+    A:{open:6,teeth:4,smile:'M16 14 Q30 26 44 14'}, B:{open:0,teeth:0,smile:'M16 16 Q30 24 44 16'},
+    C:{open:3,teeth:2,smile:'M16 15 Q30 24 44 15'}, D:{open:10,teeth:7,smile:'M14 13 Q30 28 46 13'},
+    E:{open:5,teeth:3,smile:'M14 14 Q30 26 46 14'}, F:{open:4,teeth:1,smile:'M18 16 Q30 23 42 16'},
+  };
+  function setMouth(shape) {
+    const s = MOUTH_SHAPES[shape] || MOUTH_SHAPES['B'];
+    document.getElementById('mouthOpenRight').setAttribute('ry',  s.open);
+    document.getElementById('mouthTeethRight').setAttribute('ry', s.teeth);
+    document.getElementById('mouthSmileRight').setAttribute('d',  s.smile);
+  }
+  function playLipSync(frames) {
+    clearTimeout(lipSyncTimers.right);
+    if (!frames || !frames.length) return;
+    let i = 0;
+    function next() {
+      if (i >= frames.length) { setMouth('B'); return; }
+      const f = frames[i++]; setMouth(f.shape);
+      lipSyncTimers.right = setTimeout(next, f.duration);
+    }
+    next();
+  }
+
+  // ===== AVATAR STATE =====
+  function setAvatarSpeaking(side, speaking, emotion) {
+    const slot  = document.getElementById(side==='left'?'slotLeft':'slotRight');
+    const wave  = document.getElementById(side==='left'?'waveLeft':'waveRight');
+    const spot  = document.getElementById(side==='left'?'spotLeft':'spotRight');
+    const burst = document.getElementById(side==='left'?'burstLeft':'burstRight');
+    if (speaking) {
+      slot.classList.add('speaking'); wave.classList.add('active'); spot.classList.add('active');
+      const isLaugh = emotion && (emotion.laugh_type==='burst'||emotion.laugh_type==='rofl'||(emotion.intensity||0)>=8);
+      if (isLaugh) {
+        slot.classList.add('laughing');
+        const emojis=['😂','🤣','💀','😭','🫠','😆'];
+        burst.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+        burst.classList.remove('pop'); void burst.offsetWidth; burst.classList.add('pop');
+      } else { slot.classList.remove('laughing'); }
+    } else {
+      slot.classList.remove('speaking','laughing');
+      wave.classList.remove('active'); spot.classList.remove('active');
+      if (side==='right') setMouth('B');
+    }
+  }
+
+  // ===== SPEECH BUBBLE =====
+  function showBubble(side, text) {
+    const el = document.getElementById(side==='left'?'bubbleLeft':'bubbleRight');
+    el.textContent = text.length>60 ? text.substring(0,60)+'…' : text;
+    el.classList.add('visible');
+  }
+  function hideBubble(side) {
+    document.getElementById(side==='left'?'bubbleLeft':'bubbleRight').classList.remove('visible');
+  }
+
+  // ===== SPEAK WITH AVATAR =====
+  async function speakWithAvatar(text, category, side, emotion, lipFrames) {
+    setAvatarSpeaking(side, true, emotion);
+    showBubble(side, text);
+    if (side==='right' && lipFrames && lipFrames.length) playLipSync(lipFrames);
+    return new Promise(async (resolve) => {
+      if (!ttsEnabled) {
+        setTimeout(() => { setAvatarSpeaking(side,false,null); hideBubble(side); resolve(); }, text.length*55+400);
+        return;
+      }
+      try {
+        const res   = await fetch('/speak', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text, category:category||'random'})});
+        if (!res.ok) throw new Error('TTS failed');
+        const blob  = await res.blob();
+        const url   = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => { setAvatarSpeaking(side,false,null); hideBubble(side); URL.revokeObjectURL(url); resolve(); };
+        audio.onerror = () => { setAvatarSpeaking(side,false,null); hideBubble(side); resolve(); };
+        audio.play();
+      } catch(err) { setAvatarSpeaking(side,false,null); hideBubble(side); resolve(); }
+    });
+  }
+
+  // ===== CATEGORY =====
+  function setCategory(btn) {
+    document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentCategory = btn.dataset.cat;
+    const imgRight = document.getElementById('imgRight');
+    const label    = document.getElementById('rightLabel');
+    if (currentCategory==='mom') {
+      imgRight.src='/static/avatar_female.png';
+      imgRight.onerror=()=>{imgRight.src='/static/avatar.png';};
+      label.textContent='AMOURAI 👩';
+    } else { imgRight.src='/static/avatar.png'; label.textContent='AMOURAI'; }
+  }
+
+  // ===== AGENT 17: THEME =====
+  async function toggleTheme() {
+    const res  = await fetch('/theme/toggle',{method:'POST'});
+    const data = await res.json();
+    document.documentElement.setAttribute('data-theme', data.mode);
+    const btn = document.getElementById('themeToggle');
+    btn.textContent = data.mode==='dark' ? '🌙 Dark' : '☀️ Light';
+  }
+
+  // ===== TTS =====
+  function toggleTTS() {
+    ttsEnabled = !ttsEnabled;
+    const btn = document.getElementById('ttsToggle');
+    btn.textContent = ttsEnabled ? '🔊 Voice' : '🔇 Muted';
+    btn.classList.toggle('on', ttsEnabled);
+  }
+
+  // ===== AGENT 15: NAME =====
+  function showNameModal() {
+    document.getElementById('nameInput').value = document.getElementById('userNameTag').textContent;
+    document.getElementById('nameModal').classList.add('show');
+    document.getElementById('nameInput').focus();
+  }
+  function hideNameModal() { document.getElementById('nameModal').classList.remove('show'); }
+  async function saveName() {
+    const name = document.getElementById('nameInput').value.trim();
+    if (!name) return;
+    const res  = await fetch('/name',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sessionId,name})});
+    const data = await res.json();
+    document.getElementById('userNameTag').textContent = data.name.toUpperCase();
+    hideNameModal();
+    showToast(`Name set to ${data.name}! 🎭`);
+  }
+
+  // ===== TOAST =====
+  function showToast(msg, duration=2500) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), duration);
+  }
+
+  // ===== VOICE =====
+  function toggleVoice() {
+    if (!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)) { alert('Use Chrome for voice!'); return; }
+    if (isListening) { recognition&&recognition.stop(); return; }
+    const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
+    recognition = new SR();
+    recognition.lang='en-US'; recognition.continuous=false; recognition.interimResults=false;
+    recognition.onstart=()=>{ isListening=true; document.getElementById('voiceBtn').classList.add('listening'); document.getElementById('voiceBtn').textContent='⏹'; };
+    recognition.onresult=(e)=>{ document.getElementById('userInput').value=e.results[0][0].transcript; autoResize(document.getElementById('userInput')); sendMessage(); };
+    recognition.onend=()=>{ isListening=false; document.getElementById('voiceBtn').classList.remove('listening'); document.getElementById('voiceBtn').textContent='🎤'; };
+    recognition.onerror=()=>{ isListening=false; document.getElementById('voiceBtn').classList.remove('listening'); document.getElementById('voiceBtn').textContent='🎤'; };
+    recognition.start();
+  }
+
+  // ===== CHAT =====
+  function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,90)+'px'; }
+  function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+
+  function addMessage(role, text, category, jokeData) {
+    const log = document.getElementById('chatLog');
+    const div = document.createElement('div');
+    div.className=`msg ${role}`;
+    const reactions=['😂','🤣','💀','😭','🫠','😆','🙈'];
+    const emoji=role==='ai'?reactions[Math.floor(Math.random()*reactions.length)]:'🧑';
+    const catTag=(role==='ai'&&category&&category!=='random')?`<span class="cat-tag">${category}</span>`:'';
+    const time=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+
+    // Agent 9 share + feedback + stars
+    const actionsHtml = (role==='ai' && jokeData) ? `
+      <div class="feedback-row">
+        <button class="fb-btn" onclick="sendFeedback(this,'${category}','hilarious',\`${(jokeData.joke||'').replace(/`/g,"'")}\`,${jokeData.historyId||'null'})">😂 Hilarious</button>
+        <button class="fb-btn" onclick="sendFeedback(this,'${category}','funny',\`${(jokeData.joke||'').replace(/`/g,"'")}\`,${jokeData.historyId||'null'})">😄 Funny</button>
+        <button class="fb-btn" onclick="sendFeedback(this,'${category}','meh',\`${(jokeData.joke||'').replace(/`/g,"'")}\`,${jokeData.historyId||'null'})">😐 Meh</button>
+        <button class="share-btn" onclick="shareJoke(this,\`${(jokeData.joke||'').replace(/`/g,"'")}\`,'${category}')">📋 Copy</button>
+      </div>
+      <div class="star-rating" data-joke-id="${jokeData.historyId||''}">
+        <span class="star" onclick="rateStar(this,1)">★</span>
+        <span class="star" onclick="rateStar(this,2)">★</span>
+        <span class="star" onclick="rateStar(this,3)">★</span>
+        <span class="star" onclick="rateStar(this,4)">★</span>
+        <span class="star" onclick="rateStar(this,5)">★</span>
+      </div>` : '';
+
+    div.innerHTML=`
+      <div class="msg-avatar">${emoji}</div>
+      <div>
+        <div class="bubble">${escapeHtml(text)}</div>
+        <div class="bubble-meta">${catTag} ${time}</div>
+        ${actionsHtml}
+      </div>`;
+    log.appendChild(div);
+    log.scrollTop=log.scrollHeight;
+  }
+
+  // ===== AGENT 9: SHARE =====
+  async function shareJoke(btn, joke, category) {
+    try {
+      const res  = await fetch('/share',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({joke,category})});
+      const data = await res.json();
+      await navigator.clipboard.writeText(data.share_text);
+      btn.textContent='✅ Copied!';
+      btn.classList.add('copied');
+      showToast('Joke copied to clipboard! 📋');
+      setTimeout(()=>{ btn.textContent='📋 Copy'; btn.classList.remove('copied'); }, 2000);
+    } catch(e) { showToast('Copy failed — try manually'); }
+  }
+
+  // ===== AGENT 10: FEEDBACK + AGENT 13: CONFETTI =====
+  async function sendFeedback(btn, category, reaction, joke) {
+    btn.parentElement.querySelectorAll('.fb-btn').forEach(b=>b.classList.remove('voted'));
+    btn.classList.add('voted');
+    try {
+      const res  = await fetch('/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({category,reaction_type:reaction,joke})});
+      const data = await res.json();
+      fireConfetti(data.confetti);
+      updateStatsBar(0, data.score||0, category);
+      await loadHistory();
+    } catch(e) {}
+  }
+
+  // ===== STAR RATING =====
+  async function rateStar(starEl, rating) {
+    const row    = starEl.closest('.star-rating');
+    const jokeId = row.dataset.jokeId;
+    const stars  = row.querySelectorAll('.star');
+    stars.forEach((s,i) => s.classList.toggle('filled', i < rating));
+    if (jokeId) {
+      await fetch('/history/rate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:jokeId,rating})});
+      await loadHistory();
+    }
+    showToast(`Rated ${rating} star${rating!==1?'s':''}! ${'⭐'.repeat(rating)}`);
+  }
+
+  function showTyping() {
+    const log=document.getElementById('chatLog');
+    const div=document.createElement('div');
+    div.id='typingIndicator'; div.className='typing-bubble';
+    div.innerHTML=`<div class="msg-avatar">🤖</div><div class="typing-dots"><span></span><span></span><span></span></div>`;
+    log.appendChild(div); log.scrollTop=log.scrollHeight;
+  }
+  function removeTyping() { const el=document.getElementById('typingIndicator'); if(el)el.remove(); }
+
+  // ===== MAIN SEND =====
+  async function sendMessage() {
+    const input=document.getElementById('userInput');
+    const text=input.value.trim();
+    if (!text) return;
+    input.value=''; input.style.height='auto';
+
+    addMessage('user', text, null, null);
+    await speakWithAvatar(text,'random','left',null,null);
+    showTyping();
+
+    try {
+      let intentData = {intent:'joke'};
+      try {
+        const ir = await fetch('/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,category:currentCategory,last_joke:lastJoke,waiting_for_next:waitingForNext})});
+        if (ir.ok) intentData = await ir.json();
+      } catch(e) { console.warn('Intent failed:', e); }
+
+      if (intentData.intent==='conversation' && intentData.reply) {
+        waitingForNext=true; removeTyping();
+        addMessage('ai', intentData.reply, null, null);
+        await speakWithAvatar(intentData.reply, currentCategory, 'right', null, null);
+        return;
+      }
+
+      waitingForNext=false;
+      const jr   = await fetch('/joke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,category:currentCategory})});
+      if (!jr.ok) throw new Error('Joke fetch failed');
+      const data = await jr.json();
+      removeTyping();
+
+      if (data.error) { addMessage('ai','😅 Joke machine crashed. Try again!',null,null); return; }
+
+      lastJoke = data.joke;
+      updateStatsBar(1, 0, data.category);
+
+      // Get latest history ID for rating
+      const histRes  = await fetch('/history');
+      const histData = await histRes.json();
+      const histId   = histData.history && histData.history[0] ? histData.history[0].id : null;
+
+      addMessage('ai', data.joke, data.category, {joke:data.joke, historyId:histId});
+      spawnParticles(data.stage_fx);
+      await speakWithAvatar(data.joke, data.category, 'right', data.emotion, data.lip_frames);
+
+    } catch(err) {
+      removeTyping();
+      console.error('sendMessage error:', err);
+      addMessage('ai','🔌 Connection issue! Is the server running?',null,null);
+    }
+  }
+
+  async function resetJokes() {
+    lastJoke=''; waitingForNext=false;
+    await fetch('/reset',{method:'POST'});
+    document.getElementById('chatLog').innerHTML=`
+      <div class="welcome-card">
+        <h2>😂 Ready to Laugh?</h2>
+        <p>Fresh session! All new jokes incoming. 🎭</p>
+      </div>`;
+    document.getElementById('statJokes').textContent='0';
+    document.getElementById('statLaughs').textContent='0';
+    document.getElementById('historyList').innerHTML='';
+    showToast('Fresh start! 🔄');
+  }
+
+  document.querySelectorAll('.cat-btn').forEach(btn=>{
+    btn.addEventListener('dblclick',()=>{ setCategory(btn); document.getElementById('userInput').value=''; sendMessage(); });
+  });
+
+  // Close name modal on overlay click
+  document.getElementById('nameModal').addEventListener('click', function(e) {
+    if (e.target===this) hideNameModal();
+  });
+
+  // Name input enter key
+  document.getElementById('nameInput').addEventListener('keydown', e => {
+    if (e.key==='Enter') saveName();
+  });
+</script>
+</body>
+</html>
