@@ -780,17 +780,48 @@
   }
   function removeTyping() { const el=document.getElementById('typingIndicator'); if(el)el.remove(); }
 
+  function isGoodbye(msg) {
+  const text = msg.toLowerCase().trim();
+
+  const goodbyeWords = [
+    "bye", "goodbye", "see you", "see ya",
+    "gn", "good night", "exit", "quit", "leave"
+  ];
+
+  return goodbyeWords.some(word => text.includes(word));
+}
+showTyping();
   // ===== MAIN SEND =====
   async function sendMessage() {
     const input=document.getElementById('userInput');
     const text=input.value.trim();
     if (!text) return;
     input.value=''; input.style.height='auto';
+    // ✅ GOODBYE HANDLER
+if (isGoodbye(text)) {
 
-    addMessage('user', text, null, null);
-    await speakWithAvatar(text,'random','left',null,null);
-    showTyping();
+  addMessage('user', text, null, null);
 
+  const byeReplies = [
+    "Alright bro 👋 see you soon 😂",
+    "Haha leaving already? Come back soon 😎",
+    "Bye bro… don’t forget me 😭😂",
+    "See you! I’ll be here with fresh jokes 🎭"
+  ];
+
+  const byeMsg = byeReplies[Math.floor(Math.random() * byeReplies.length)];
+
+  setTimeout(async () => {
+    addMessage('ai', byeMsg, null, null);
+    await speakWithAvatar(byeMsg, 'random', 'right', null, null);
+  }, 300);
+
+  // reset state
+  lastJoke = '';
+  waitingForNext = false;
+
+  return; // 🔥 STOP everything
+}
     try {
       let intentData = {intent:'joke'};
       try {
