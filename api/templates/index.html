@@ -609,30 +609,32 @@
         return;
       }
       
-      try {
+     try {
   const res = await fetch('/speak', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({text, category:category||'random'})
   });
 
-  console.log("TTS response status:", res.status);
-
-  if (!res.ok) {
-    console.error("TTS FAILED");
-    throw new Error('TTS failed');
-  }
+  if (!res.ok) throw new Error("TTS failed");
 
   const blob = await res.blob();
-  console.log("Audio blob size:", blob.size);
 
-  if (blob.size === 0) {
-    console.error("Empty audio!");
-    throw new Error("Empty audio");
-  }
+  if (blob.size === 0) throw new Error("Empty audio");
 
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
+
+  audio.preload = "auto";
+
+  // 🔥 IMPORTANT FIX
+  const playPromise = audio.play();
+
+  if (playPromise !== undefined) {
+    playPromise.catch(err => {
+      console.warn("Autoplay blocked:", err);
+    });
+  }
 
   audio.onended = () => {
     setAvatarSpeaking(side,false,null);
@@ -641,21 +643,24 @@
     resolve();
   };
 
-  audio.onerror = (e) => {
-    console.error("Audio error:", e);
+  audio.onerror = () => {
+    console.error("Audio failed");
     setAvatarSpeaking(side,false,null);
     hideBubble(side);
     resolve();
   };
 
-  await audio.play();
-
 } catch(err) {
   console.error("TTS ERROR:", err);
-  setAvatarSpeaking(side,false,null);
-  hideBubble(side);
-  resolve();
-} }
+
+  // fallback so UI doesn't freeze
+  setTimeout(() => {
+    setAvatarSpeaking(side,false,null);
+    hideBubble(side);
+    resolve();
+  }, 1200);
+}
+}
     )}
   // ===== CATEGORY =====
   function setCategory(btn) {
