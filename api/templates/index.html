@@ -9,6 +9,26 @@
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=Space+Mono&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
   <style>
+    .speech-bubble.bottom {
+  top: calc(100% + 10px);
+  bottom: auto;
+  }
+  .avatar-slot.speaking {
+  animation: none !important;
+}
+  .speech-bubble.bottom::after {
+  top: -7px;
+  bottom: auto;
+  transform: translateX(-50%) rotate(225deg);
+  }
+  @keyframes floatIdle {
+  0%   { transform: translateY(0px); }
+  100% { transform: translateY(-6px); }
+}
+
+.avatar-slot {
+  animation: floatIdle 2.5s ease-in-out infinite alternate;
+}
     /* ===== THEME VARIABLES ===== */
     :root {
       --bg:#0a0a0f; --surface:#111118; --surface2:#1a1a24;
@@ -57,6 +77,7 @@
     .spotlight.right.active { opacity:0.2; }
 
     .avatar-slot { display:flex; flex-direction:column; align-items:center; gap:6px; position:relative; z-index:2; }
+    .av-wrap:hover .av-img { transform: scale(1.05); box-shadow: 0 0 30px rgba(255,61,110,0.3);}
     .av-wrap { position:relative; width:110px; height:110px; flex-shrink:0; overflow: visible;}
     .user-circle { width:110px; height:110px; border-radius:50%; background:linear-gradient(135deg,#2a1a4e,#1a1a2e); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:2.8rem; transition:border-color 0.3s, box-shadow 0.3s, transform 0.3s; }
     .av-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; object-position: center; border: 2px solid var(--border); display: block; transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;}
@@ -69,8 +90,8 @@
     .mouth-overlay { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); width:50px; height:26px; pointer-events:none; opacity:0; transition:opacity 0.2s; }
     .avatar-slot.speaking .mouth-overlay, .avatar-slot.laughing .mouth-overlay { opacity:1; }
 
-    .speech-bubble { position:absolute; left:50%; bottom:calc(100% + 10px); transform:translateX(-50%) translateY(6px) scale(0.95); max-width:160px; min-width:70px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:7px 10px; font-size:0.72rem; line-height:1.4; color:var(--text); opacity:0; transition:opacity 0.3s ease, transform 0.3s ease; pointer-events:none; z-index:30; word-break:break-word; text-align:center; }
-    .speech-bubble.visible { opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+    .speech-bubble {transform: translateX(-50%) translateY(10px) scale(0.9);}
+    .speech-bubble.visible {transform: translateX(-50%) translateY(0) scale(1);}
     .speech-bubble::after { content:''; position:absolute; bottom:-7px; left:50%; transform:translateX(-50%) rotate(45deg); width:12px; height:12px; background:var(--surface); border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
     .speech-bubble.left-bubble { border-color:#7c3aed; }
     .speech-bubble.left-bubble::after { border-right-color:#7c3aed; border-bottom-color:#7c3aed; }
@@ -554,10 +575,25 @@
 
   // ===== SPEECH BUBBLE =====
   function showBubble(side, text) {
-    const el = document.getElementById(side==='left'?'bubbleLeft':'bubbleRight');
-    el.textContent = text.length>60 ? text.substring(0,60)+'…' : text;
-    el.classList.add('visible');
-  }
+  const el = document.getElementById(side==='left'?'bubbleLeft':'bubbleRight');
+
+  el.textContent = text.length > 60 ? text.substring(0,60)+'…' : text;
+
+  // Reset
+  el.classList.remove('bottom');
+
+  // 👇 Check if bubble goes out of screen
+  requestAnimationFrame(() => {
+    const rect = el.getBoundingClientRect();
+
+    if (rect.top < 10) {
+      el.classList.add('bottom'); // flip below avatar
+    }
+  });
+
+  el.classList.add('visible');
+}
+  
   function hideBubble(side) {
     document.getElementById(side==='left'?'bubbleLeft':'bubbleRight').classList.remove('visible');
   }
