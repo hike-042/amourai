@@ -5,7 +5,16 @@ import os, random, json, threading, re, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, date
 import uuid
+from flask import Flask
 
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Flask is working!"
+
+# VERY IMPORTANT
+app = app
 load_dotenv()
 app    = Flask(__name__)
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
